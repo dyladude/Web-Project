@@ -1,0 +1,4 @@
+staticfiles/
+.env
+__pycache__/
+*.pycgunicorn.ctl

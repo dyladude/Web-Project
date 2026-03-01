@@ -17,6 +17,8 @@ services:
     # Bind only to localhost on the VPS; nginx will proxy to it
     ports:
       - "127.0.0.1:8001:8000"
+    volumes:
+      - .:/app
     restart: unless-stopped
 
 volumes:

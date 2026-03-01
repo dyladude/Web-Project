@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Todos</title>
+  </head>
+  <body>
+    <h1>Todos</h1>
+
+    <p>
+      <a href="{% url 'todo-create' %}">New Todo</a> |
+      <a href="/admin/">Admin</a> |
+      <a href="{% url 'logout' %}">Logout</a>
+    </p>
+
+    {% if todos %}
+      <ul>
+        {% for t in todos %}
+          <li>
+            {% if t.completed %}✅{% else %}⬜{% endif %}
+            {{ t.title }}
+            [<a href="{% url 'todo-update' t.pk %}">edit</a>]
+            [<a href="{% url 'todo-delete' t.pk %}">delete</a>]
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No todos yet.</p>
+    {% endif %}
+  </body>
+</html>
