@@ -10,7 +10,10 @@
     <p>
       <a href="{% url 'todo-create' %}">New Todo</a> |
       <a href="/admin/">Admin</a> |
-      <a href="{% url 'logout' %}">Logout</a>
+      <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">Logout</button>
+      </form>
     </p>
 
     {% if todos %}
