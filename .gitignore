@@ -1,4 +1,20 @@
+# Django
 staticfiles/
-.env
+db.sqlite3
+
+# Python
 __pycache__/
-*.pycgunicorn.ctl
+*.pyc
+*.pyo
+
+# Environment
+.env
+
+# Gunicorn
+gunicorn.ctl
+
+# OS
+.DS_Store
+
+# Logs
+*.log
