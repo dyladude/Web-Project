@@ -1,19 +1,22 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Delete Todo</title>
-  </head>
-  <body>
-    <h1>Delete Todo</h1>
+{% extends "base.html" %}
 
-    <p>Delete “{{ object.title }}”?</p>
+{% block title %}Delete Todo{% endblock %}
 
-    <form method="post">
-      {% csrf_token %}
-      <button type="submit">Yes, delete</button>
-    </form>
+{% block content %}
 
-    <p><a href="{% url 'todo-list' %}">Cancel</a></p>
-  </body>
-</html>
+<h1>Delete Todo</h1>
+
+<p>Are you sure you want to delete:</p>
+
+<strong>{{ object.title }}</strong>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Confirm Delete</button>
+</form>
+
+<p>
+    <a href="{% url 'todo-list' %}">Cancel</a>
+</p>
+
+{% endblock %}

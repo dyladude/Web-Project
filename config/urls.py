@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 from django.views.generic import TemplateView
+from core.views import resume
 
 def health(_request):
     return JsonResponse({'status': 'ok'})
@@ -25,6 +26,7 @@ def health(_request):
 urlpatterns = [
     path("", TemplateView.as_view(template_name="core/dashboard.html"), name="dashboard"),
     path("todos/", include("core.urls")),
+    path("resume/", resume, name="resume"),
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
     path("health/", health),

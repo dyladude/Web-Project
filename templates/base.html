@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Web Project{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'core/style.css' %}">
+</head>
+<body>
+
+<header>
+    <div class="nav-left">
+        <a href="/">Dashboard</a>
+        <a href="/todos/">Todos</a>
+        <a href="/resume/">Resume</a>
+        <a href="/health/">Health</a>
+        <a href="/admin/">Admin</a>
+    </div>
+
+    <div class="nav-right">
+        {% if user.is_authenticated %}
+            <span>Logged in as {{ user.username }}</span>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+        {% else %}
+            <a href="{% url 'login' %}">Login</a>
+        {% endif %}
+    </div>
+</header>
+
+<main class="container">
+    {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

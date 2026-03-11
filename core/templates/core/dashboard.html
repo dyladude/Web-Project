@@ -1,25 +1,8 @@
-<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Dashboard</title>
-    <style>
-        body { font-family: Arial; }
-        .tiles { display: flex; gap: 20px; }
-        .tile {
-            border: 1px solid #ccc;
-            padding: 20px;
-            width: 200px;
-            text-align: center;
-            border-radius: 8px;
-        }
-        .tile a {
-            text-decoration: none;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
 
 <h1>Dashboard</h1>
 
@@ -38,19 +21,11 @@
         <a href="/health/">❤️ Health Check</a>
         <p>Service status endpoint</p>
     </div>
+
+    <div class="tile">
+        <a href="/resume/">📄 Resume</a>
+        <p>View my resume</p>
+    </div>
 </div>
 
-<p>
-    {% if user.is_authenticated %}
-        Logged in as {{ user.username }} |
-        <form method="post" action="{% url 'logout' %}" style="display:inline;">
-          {% csrf_token %}
-          <button type="submit">Logout</button>
-        </form>
-    {% else %}
-        <a href="/accounts/login/">Login</a>
-    {% endif %}
-</p>
-
-</body>
-</html>
+{% endblock %}

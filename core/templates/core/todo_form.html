@@ -1,18 +1,26 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Todo</title>
-  </head>
-  <body>
-    <h1>Todo</h1>
+{% extends "base.html" %}
 
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_p }}
-      <button type="submit">Save</button>
-    </form>
+{% block title %}Todo Form{% endblock %}
 
-    <p><a href="{% url 'todo-list' %}">Back</a></p>
-  </body>
-</html>
+{% block content %}
+
+<h1>
+{% if object %}
+Edit Todo
+{% else %}
+Create Todo
+{% endif %}
+</h1>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+
+    <button type="submit">Save</button>
+</form>
+
+<p>
+    <a href="{% url 'todo-list' %}">Back to list</a>
+</p>
+
+{% endblock %}

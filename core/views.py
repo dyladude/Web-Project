@@ -40,3 +40,6 @@ class TodoDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_queryset(self):
         return Todo.objects.filter(owner=self.request.user)
+
+def resume(request):
+    return render(request, "core/resume.html")
