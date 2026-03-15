@@ -15,19 +15,17 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.http import JsonResponse
 from django.urls import include, path
-from django.views.generic import TemplateView
-from core.views import resume
+from core.views import resume, dashboard, health, heartbeat, run_pull_checks
 
-def health(_request):
-    return JsonResponse({'status': 'ok'})
 
 urlpatterns = [
-    path("", TemplateView.as_view(template_name="core/dashboard.html"), name="dashboard"),
+    path("", dashboard, name="dashboard"),
     path("todos/", include("core.urls")),
     path("resume/", resume, name="resume"),
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
-    path("health/", health),
+    path("health/", health, name="health"),
+    path("health/run/", run_pull_checks, name="run-pull-checks"),
+    path("health/heartbeat/<str:token>/", heartbeat, name="heartbeat"),
 ]

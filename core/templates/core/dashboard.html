@@ -3,7 +3,6 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-
 <h1>Dashboard</h1>
 
 <div class="tiles">
@@ -19,7 +18,7 @@
 
     <div class="tile">
         <a href="/health/">❤️ Health Check</a>
-        <p>Service status endpoint</p>
+        <p>Application health endpoint</p>
     </div>
 
     <div class="tile">
@@ -28,4 +27,55 @@
     </div>
 </div>
 
+<h2>Monitored Services</h2>
+
+<div class="tiles">
+    {% for service in services %}
+        <div class="tile">
+            <h3>{{ service.name }}</h3>
+            <p>{{ service.description }}</p>
+
+            <p>
+                Status:
+                <span class="status status-{{ service.last_status }}">
+                    {{ service.last_status|title }}
+                </span>
+            </p>
+
+            <p>Check type: {{ service.check_type|title }}</p>
+
+            {% if service.url %}
+                <p><a href="{{ service.url }}" target="_blank" rel="noopener">Open service</a></p>
+            {% endif %}
+
+            <p>
+                Last checked:
+                {% if service.last_checked %}
+                    {{ service.last_checked }}
+                {% else %}
+                    Never
+                {% endif %}
+            </p>
+
+            <p>
+                Response time:
+                {% if service.response_time_ms %}
+                    {{ service.response_time_ms }} ms
+                {% else %}
+                    N/A
+                {% endif %}
+            </p>
+        </div>
+    {% empty %}
+        <p>No services added yet.</p>
+    {% endfor %}
+</div>
 {% endblock %}
+
+{% if service.last_status == "up" %}
+🟢 Up
+{% elif service.last_status == "down" %}
+🔴 Down
+{% else %}
+⚪ Unknown
+{% endif %}
