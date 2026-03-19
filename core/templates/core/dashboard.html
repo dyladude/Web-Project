@@ -1,81 +1,394 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}HW 6 Dashboard{% endblock %}
 
 {% block content %}
-<h1>Dashboard</h1>
+<h1>Authenticated and Authorized</h1>
+<p>This page demonstrates an unauthenticated AJAX GET plus authenticated AJAX POST, PUT, and DELETE operations.</p>
 
-<div class="tiles">
-    <div class="tile">
-        <a href="/todos/">📝 Todos</a>
-        <p>Manage your task list</p>
+<section class="panel">
+    <h2>Public services</h2>
+    <p>Loaded with an unauthenticated AJAX GET from <code>/api/services/</code>.</p>
+    <div class="stack-row">
+        <button id="refresh-services" type="button">Refresh services</button>
     </div>
+    <div id="services-list" class="tiles"></div>
+</section>
 
-    <div class="tile">
-        <a href="/admin/">⚙ Admin</a>
-        <p>Admin interface</p>
+<section class="panel">
+    <h2>Basic Auth credentials</h2>
+    <p>Use an admin or author account here for the protected AJAX requests.</p>
+    <div class="two-col">
+        <label for="basic-username">Username</label>
+        <input id="basic-username" autocomplete="username" type="text">
+        <label for="basic-password">Password</label>
+        <input id="basic-password" autocomplete="current-password" type="password">
     </div>
+    <p id="auth-status" class="muted">Not authenticated yet.</p>
+</section>
 
-    <div class="tile">
-        <a href="/health/">❤️ Health Check</a>
-        <p>Application health endpoint</p>
-    </div>
-
-    <div class="tile">
-        <a href="/resume/">📄 Resume</a>
-        <p>View my resume</p>
-    </div>
-</div>
-
-<h2>Monitored Services</h2>
-
-<div class="tiles">
-    {% for service in services %}
-        <div class="tile">
-            <h3>{{ service.name }}</h3>
-            <p>{{ service.description }}</p>
-
-            <p>
-                Status:
-                <span class="status status-{{ service.last_status }}">
-                    {{ service.last_status|title }}
-                </span>
-            </p>
-
-            <p>Check type: {{ service.check_type|title }}</p>
-
-            {% if service.url %}
-                <p><a href="{{ service.url }}" target="_blank" rel="noopener">Open service</a></p>
-            {% endif %}
-
-            <p>
-                Last checked:
-                {% if service.last_checked %}
-                    {{ service.last_checked }}
-                {% else %}
-                    Never
-                {% endif %}
-            </p>
-
-            <p>
-                Response time:
-                {% if service.response_time_ms %}
-                    {{ service.response_time_ms }} ms
-                {% else %}
-                    N/A
-                {% endif %}
-            </p>
+<section class="panel">
+    <h2>Create service</h2>
+    <form id="create-service-form">
+        <div class="two-col">
+            <div>
+                <label for="service-name">Name</label>
+                <input id="service-name" name="name" required type="text">
+            </div>
+            <div>
+                <label for="service-url">URL</label>
+                <input id="service-url" name="url" type="url">
+            </div>
         </div>
-    {% empty %}
-        <p>No services added yet.</p>
-    {% endfor %}
-</div>
-{% endblock %}
+        <label for="service-description">Description</label>
+        <textarea id="service-description" name="description" rows="3"></textarea>
+        <div class="two-col">
+            <div>
+                <label for="service-check-type">Check type</label>
+                <select id="service-check-type" name="check_type">
+                    <option value="pull">Pull</option>
+                    <option value="push">Push</option>
+                </select>
+            </div>
+            <div>
+                <label for="service-public">Public</label>
+                <select id="service-public" name="is_public">
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit">Create service</button>
+    </form>
+</section>
 
-{% if service.last_status == "up" %}
-🟢 Up
-{% elif service.last_status == "down" %}
-🔴 Down
-{% else %}
-⚪ Unknown
-{% endif %}
+<section class="panel">
+    <h2>Edit or delete service</h2>
+    <form id="edit-service-form">
+        <div class="two-col">
+            <div>
+                <label for="edit-service-id">Service id</label>
+                <input id="edit-service-id" required type="number" min="1">
+            </div>
+            <div>
+                <label for="edit-last-status">Status</label>
+                <select id="edit-last-status">
+                    <option value="unknown">Unknown</option>
+                    <option value="up">Up</option>
+                    <option value="down">Down</option>
+                </select>
+            </div>
+        </div>
+        <div class="two-col">
+            <div>
+                <label for="edit-service-name">Name</label>
+                <input id="edit-service-name" type="text">
+            </div>
+            <div>
+                <label for="edit-service-url">URL</label>
+                <input id="edit-service-url" type="url">
+            </div>
+        </div>
+        <label for="edit-service-description">Description</label>
+        <textarea id="edit-service-description" rows="3"></textarea>
+        <button type="submit">Update service</button>
+        <button id="delete-service-btn" type="button">Delete service</button>
+    </form>
+</section>
+
+<section class="panel">
+    <h2>User management</h2>
+    <p>All user endpoints require Basic Auth. Only admins can create, update, or delete credentials.</p>
+    <div class="stack-row">
+        <button id="load-users-btn" type="button">Load users</button>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Active</th>
+                </tr>
+            </thead>
+            <tbody id="users-table-body"></tbody>
+        </table>
+    </div>
+
+    <h3>Create credentials</h3>
+    <form id="create-user-form">
+        <div class="two-col">
+            <div>
+                <label for="new-username">Username</label>
+                <input id="new-username" required type="text">
+            </div>
+            <div>
+                <label for="new-password">Password</label>
+                <input id="new-password" required type="password">
+            </div>
+        </div>
+        <label for="new-role">Role</label>
+        <select id="new-role">
+            <option value="author">Author</option>
+            <option value="admin">Admin</option>
+        </select>
+        <button type="submit">Create user</button>
+    </form>
+
+    <h3>Update or delete credentials</h3>
+    <form id="edit-user-form">
+        <div class="two-col">
+            <div>
+                <label for="edit-user-id">User id</label>
+                <input id="edit-user-id" required type="number" min="1">
+            </div>
+            <div>
+                <label for="edit-user-role">Role</label>
+                <select id="edit-user-role">
+                    <option value="author">Author</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+        </div>
+        <div class="two-col">
+            <div>
+                <label for="edit-user-password">New password</label>
+                <input id="edit-user-password" type="password">
+            </div>
+            <div>
+                <label for="edit-user-active">Active</label>
+                <select id="edit-user-active">
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit">Update user</button>
+        <button id="delete-user-btn" type="button">Delete user</button>
+    </form>
+</section>
+
+<pre id="api-output" class="api-output">Ready.</pre>
+
+<script>
+const output = document.getElementById("api-output");
+const servicesList = document.getElementById("services-list");
+const usersTableBody = document.getElementById("users-table-body");
+const authStatus = document.getElementById("auth-status");
+
+function authHeader() {
+    const username = document.getElementById("basic-username").value;
+    const password = document.getElementById("basic-password").value;
+    if (!username || !password) {
+        authStatus.textContent = "Enter Basic Auth credentials before protected requests.";
+        return {};
+    }
+    authStatus.textContent = `Using Basic Auth as ${username}.`;
+    return { Authorization: `Basic ${btoa(`${username}:${password}`)}` };
+}
+
+function showResult(label, payload) {
+    output.textContent = `${label}\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+async function jsonFetch(url, options = {}) {
+    const response = await fetch(url, options);
+    let data;
+    try {
+        data = await response.json();
+    } catch {
+        data = { detail: await response.text() };
+    }
+    if (!response.ok) {
+        throw { status: response.status, data };
+    }
+    return data;
+}
+
+function serviceCard(service) {
+    return `
+        <article class="tile">
+            <h3>${service.name} <span class="small">#${service.id}</span></h3>
+            <p>${service.description || "No description."}</p>
+            <p>Status: <span class="status status-${service.last_status}">${service.last_status}</span></p>
+            <p>Check type: ${service.check_type}</p>
+            <p>Response time: ${service.response_time_ms ?? "N/A"}</p>
+            <p>${service.url ? `<a href="${service.url}" target="_blank" rel="noopener">${service.url}</a>` : "No URL"}</p>
+        </article>
+    `;
+}
+
+async function loadServices() {
+    try {
+        const data = await jsonFetch("/api/services/");
+        servicesList.innerHTML = data.services.map(serviceCard).join("") || "<p>No services found.</p>";
+        showResult("GET /api/services/", data);
+    } catch (error) {
+        showResult("GET /api/services/ failed", error);
+    }
+}
+
+async function loadUsers() {
+    try {
+        const data = await jsonFetch("/api/users/", {
+            headers: {
+                ...authHeader(),
+            },
+        });
+        usersTableBody.innerHTML = data.users.map((user) => `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.username}</td>
+                <td>${user.role}</td>
+                <td>${user.is_active}</td>
+            </tr>
+        `).join("");
+        showResult("GET /api/users/", data);
+    } catch (error) {
+        showResult("GET /api/users/ failed", error);
+    }
+}
+
+document.getElementById("refresh-services").addEventListener("click", loadServices);
+document.getElementById("load-users-btn").addEventListener("click", loadUsers);
+
+document.getElementById("create-service-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = {
+        name: document.getElementById("service-name").value,
+        url: document.getElementById("service-url").value,
+        description: document.getElementById("service-description").value,
+        check_type: document.getElementById("service-check-type").value,
+        is_public: document.getElementById("service-public").value === "true",
+    };
+
+    try {
+        const data = await jsonFetch("/api/services/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeader(),
+            },
+            body: JSON.stringify(payload),
+        });
+        showResult("POST /api/services/", data);
+        event.target.reset();
+        loadServices();
+    } catch (error) {
+        showResult("POST /api/services/ failed", error);
+    }
+});
+
+document.getElementById("edit-service-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const serviceId = document.getElementById("edit-service-id").value;
+    const payload = {
+        name: document.getElementById("edit-service-name").value,
+        url: document.getElementById("edit-service-url").value,
+        description: document.getElementById("edit-service-description").value,
+        last_status: document.getElementById("edit-last-status").value,
+        touch_checked: true,
+    };
+
+    try {
+        const data = await jsonFetch(`/api/services/${serviceId}/`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeader(),
+            },
+            body: JSON.stringify(payload),
+        });
+        showResult(`PUT /api/services/${serviceId}/`, data);
+        loadServices();
+    } catch (error) {
+        showResult("PUT service failed", error);
+    }
+});
+
+document.getElementById("delete-service-btn").addEventListener("click", async () => {
+    const serviceId = document.getElementById("edit-service-id").value;
+    try {
+        const data = await jsonFetch(`/api/services/${serviceId}/`, {
+            method: "DELETE",
+            headers: {
+                ...authHeader(),
+            },
+        });
+        showResult(`DELETE /api/services/${serviceId}/`, data);
+        loadServices();
+    } catch (error) {
+        showResult("DELETE service failed", error);
+    }
+});
+
+document.getElementById("create-user-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = {
+        username: document.getElementById("new-username").value,
+        password: document.getElementById("new-password").value,
+        role: document.getElementById("new-role").value,
+    };
+
+    try {
+        const data = await jsonFetch("/api/users/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeader(),
+            },
+            body: JSON.stringify(payload),
+        });
+        showResult("POST /api/users/", data);
+        event.target.reset();
+        loadUsers();
+    } catch (error) {
+        showResult("POST /api/users/ failed", error);
+    }
+});
+
+document.getElementById("edit-user-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const userId = document.getElementById("edit-user-id").value;
+    const payload = {
+        role: document.getElementById("edit-user-role").value,
+        password: document.getElementById("edit-user-password").value,
+        is_active: document.getElementById("edit-user-active").value === "true",
+    };
+
+    try {
+        const data = await jsonFetch(`/api/users/${userId}/`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeader(),
+            },
+            body: JSON.stringify(payload),
+        });
+        showResult(`PUT /api/users/${userId}/`, data);
+        loadUsers();
+    } catch (error) {
+        showResult("PUT /api/users/ failed", error);
+    }
+});
+
+document.getElementById("delete-user-btn").addEventListener("click", async () => {
+    const userId = document.getElementById("edit-user-id").value;
+    try {
+        const data = await jsonFetch(`/api/users/${userId}/`, {
+            method: "DELETE",
+            headers: {
+                ...authHeader(),
+            },
+        });
+        showResult(`DELETE /api/users/${userId}/`, data);
+        loadUsers();
+    } catch (error) {
+        showResult("DELETE /api/users/ failed", error);
+    }
+});
+
+loadServices();
+</script>
+{% endblock %}

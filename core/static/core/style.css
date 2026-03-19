@@ -18,7 +18,8 @@
   --max-width: 1100px;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
 }
@@ -38,6 +39,11 @@ a {
 a:hover {
   color: var(--accent-hover);
   text-decoration: underline;
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 header {
@@ -86,12 +92,17 @@ header {
   padding: 0 20px 40px;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   margin-top: 0;
   color: var(--text);
 }
 
-p {
+p,
+label,
+th,
+td {
   color: var(--muted);
 }
 
@@ -102,12 +113,16 @@ p {
   margin-top: 24px;
 }
 
-.tile {
+.tile,
+.panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px 20px;
   box-shadow: var(--shadow);
+}
+
+.tile {
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -118,7 +133,7 @@ p {
 }
 
 .tile a {
-  font-size: 1.1rem;
+  font-size: 1.02rem;
   font-weight: 700;
 }
 
@@ -126,8 +141,12 @@ p {
   margin-top: 10px;
 }
 
+.panel {
+  margin-bottom: 24px;
+}
+
 form {
-  max-width: 700px;
+  max-width: 100%;
 }
 
 input,
@@ -151,6 +170,8 @@ button {
   padding: 10px 16px;
   font-weight: 700;
   cursor: pointer;
+  margin-right: 8px;
+  margin-top: 6px;
 }
 
 button:hover {
@@ -171,15 +192,49 @@ ul li {
   margin-bottom: 12px;
 }
 
-@media (max-width: 720px) {
-  header {
-    padding: 14px 18px;
-  }
+.two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
 
-  .container {
-    margin-top: 24px;
-    padding: 0 14px 24px;
-  }
+.stack-row {
+  margin-bottom: 12px;
+}
+
+.small {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 24px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.api-output {
+  white-space: pre-wrap;
+  background: #020617;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow-x: auto;
 }
 
 .status {
@@ -203,4 +258,19 @@ ul li {
 .status-unknown {
   background: rgba(148, 163, 184, 0.18);
   color: #cbd5e1;
+}
+
+@media (max-width: 720px) {
+  header {
+    padding: 14px 18px;
+  }
+
+  .container {
+    margin-top: 24px;
+    padding: 0 14px 24px;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr;
+  }
 }
