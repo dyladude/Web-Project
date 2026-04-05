@@ -42,6 +42,7 @@ class Service(models.Model):
     last_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_UNKNOWN)
     last_checked = models.DateTimeField(null=True, blank=True)
     response_time_ms = models.PositiveIntegerField(null=True, blank=True)
+    last_error = models.TextField(blank=True, null=True)
 
     # only needed for push checks
     heartbeat_token = models.CharField(max_length=64, blank=True, unique=True)

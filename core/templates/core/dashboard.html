@@ -7,8 +7,11 @@
 <p>This page demonstrates an unauthenticated AJAX GET plus authenticated AJAX POST, PUT, and DELETE operations.</p>
 
 <section class="panel">
-    <h2>Public services</h2>
-    <p>Loaded with an unauthenticated AJAX GET from <code>/api/services/</code>.</p>
+    <h2>Service Monitoring Dashboard</h2>
+    <p>
+        This section displays the current status of public monitored services, including
+        response time, most recent check time, and any recorded error details.
+    </p>
     <div class="stack-row">
         <button id="refresh-services" type="button">Refresh services</button>
     </div>
@@ -206,15 +209,40 @@ async function jsonFetch(url, options = {}) {
     return data;
 }
 
+function formatDate(value) {
+    if (!value) return "Never";
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
 function serviceCard(service) {
+    const statusLabel = service.last_status || "unknown";
+    const responseTime = service.response_time_ms ?? "N/A";
+    const lastChecked = formatDate(service.last_checked);
+    const errorLine = service.last_error
+        ? `<p class="service-error"><strong>Error:</strong> ${service.last_error}</p>`
+        : "";
+
     return `
-        <article class="tile">
-            <h3>${service.name} <span class="small">#${service.id}</span></h3>
-            <p>${service.description || "No description."}</p>
-            <p>Status: <span class="status status-${service.last_status}">${service.last_status}</span></p>
-            <p>Check type: ${service.check_type}</p>
-            <p>Response time: ${service.response_time_ms ?? "N/A"}</p>
-            <p>${service.url ? `<a href="${service.url}" target="_blank" rel="noopener">${service.url}</a>` : "No URL"}</p>
+        <article class="tile service-tile service-${statusLabel}">
+            <div class="tile-header">
+                <h3>${service.name}</h3>
+                <span class="status-pill status-${statusLabel}">${statusLabel.toUpperCase()}</span>
+            </div>
+
+            <p class="service-description">${service.description || "No description provided."}</p>
+
+            <div class="service-meta">
+                <p><strong>Check type:</strong> ${service.check_type}</p>
+                <p><strong>Last checked:</strong> ${lastChecked}</p>
+                <p><strong>Response time:</strong> ${responseTime} ms</p>
+            </div>
+
+            ${errorLine}
+
+            <p class="service-link">
+                ${service.url ? `<a href="${service.url}" target="_blank" rel="noopener">Open service</a>` : "No URL"}
+            </p>
         </article>
     `;
 }
@@ -390,5 +418,6 @@ document.getElementById("delete-user-btn").addEventListener("click", async () =>
 });
 
 loadServices();
+setInterval(loadServices, 30000); // auto-refresh every 30 seconds
 </script>
 {% endblock %}

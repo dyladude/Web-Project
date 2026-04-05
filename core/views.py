@@ -192,13 +192,15 @@ def run_pull_checks(request):
                 response_time_ms = int(elapsed)
                 if 200 <= response.status < 400:
                     status = Service.STATUS_UP
-        except (urllib.error.URLError, ValueError):
+                service.last_error = None  # clear previous error if successful
+        except (urllib.error.URLError, ValueError) as e:
             status = Service.STATUS_DOWN
+            service.last_error = str(e)
 
         service.last_status = status
         service.last_checked = timezone.now()
         service.response_time_ms = response_time_ms
-        service.save(update_fields=["last_status", "last_checked", "response_time_ms"])
+        service.save(update_fields=["last_status", "last_checked", "response_time_ms", "last_error"])
 
         results.append({
             "name": service.name,
