@@ -31,7 +31,7 @@ class Command(BaseCommand):
 
                     if 200 <= response.status < 400:
                         status = Service.STATUS_UP
-                    service.last_error = None  # clear previous error if successful
+                    service.last_error = ""
             except (urllib.error.URLError, ValueError) as e:
                 status = Service.STATUS_DOWN
                 service.last_error = str(e)
@@ -39,7 +39,17 @@ class Command(BaseCommand):
             service.last_status = status
             service.last_checked = timezone.now()
             service.response_time_ms = response_time_ms
-            service.save(update_fields=["last_status", "last_checked", "response_time_ms", "last_error"])
+            service.last_modified_by = "system"
+            service.save(
+                update_fields=[
+                    "last_status",
+                    "last_checked",
+                    "response_time_ms",
+                    "last_error",
+                    "last_modified_by",
+                    "updated_at",
+                ]
+            )
 
             results.append(f"{service.name}: {status}")
 

@@ -1,8 +1,8 @@
 import base64
 import json
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.decorators import login_required
@@ -106,6 +106,23 @@ def _forbidden(message="Forbidden"):
     return JsonResponse({"detail": message}, status=403)
 
 
+def _get_actor(request):
+    basic_user = getattr(request, "basic_user", None)
+    if basic_user and getattr(basic_user, "is_authenticated", False):
+        return basic_user.username
+
+    if getattr(request, "user", None) and request.user.is_authenticated:
+        return request.user.username
+
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+    else:
+        ip = request.META.get("REMOTE_ADDR", "unknown")
+
+    return f"IP: {ip}"
+
+
 def _service_to_dict(service):
     return {
         "id": service.id,
@@ -117,6 +134,10 @@ def _service_to_dict(service):
         "last_status": service.last_status,
         "last_checked": service.last_checked.isoformat() if service.last_checked else None,
         "response_time_ms": service.response_time_ms,
+        "last_error": service.last_error,
+        "last_modified_by": service.last_modified_by or "system",
+        "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+        "heartbeat_token": service.heartbeat_token if service.check_type == Service.CHECK_PUSH else "",
     }
 
 
@@ -135,6 +156,11 @@ def _load_json(request):
         return json.loads(request.body.decode("utf-8") or "{}")
     except json.JSONDecodeError:
         return None
+
+
+def _latest_service_timestamp():
+    latest = Service.objects.order_by("-updated_at").values_list("updated_at", flat=True).first()
+    return latest.isoformat() if latest else None
 
 
 # ---------- HTML views ----------
@@ -156,7 +182,11 @@ def heartbeat(request, token):
     if request.method != "POST":
         return HttpResponseBadRequest("POST required")
 
-    service = get_object_or_404(Service, heartbeat_token=token, check_type=Service.CHECK_PUSH)
+    service = get_object_or_404(
+        Service,
+        heartbeat_token=token,
+        check_type=Service.CHECK_PUSH,
+    )
 
     data = _load_json(request)
     if data is None:
@@ -171,7 +201,19 @@ def heartbeat(request, token):
     service.last_status = status
     service.last_checked = timezone.now()
     service.response_time_ms = response_time_ms if isinstance(response_time_ms, int) else None
-    service.save(update_fields=["last_status", "last_checked", "response_time_ms"])
+    service.last_modified_by = _get_actor(request)
+    service.last_error = ""
+
+    service.save(
+        update_fields=[
+            "last_status",
+            "last_checked",
+            "response_time_ms",
+            "last_modified_by",
+            "last_error",
+            "updated_at",
+        ]
+    )
 
     return JsonResponse({"ok": True, "service": service.name})
 
@@ -180,6 +222,7 @@ def heartbeat(request, token):
 def run_pull_checks(request):
     services = Service.objects.filter(check_type=Service.CHECK_PULL, is_public=True)
     results = []
+    actor = _get_actor(request)
 
     for service in services:
         start = time.monotonic()
@@ -192,7 +235,7 @@ def run_pull_checks(request):
                 response_time_ms = int(elapsed)
                 if 200 <= response.status < 400:
                     status = Service.STATUS_UP
-                service.last_error = None  # clear previous error if successful
+                    service.last_error = ""
         except (urllib.error.URLError, ValueError) as e:
             status = Service.STATUS_DOWN
             service.last_error = str(e)
@@ -200,13 +243,25 @@ def run_pull_checks(request):
         service.last_status = status
         service.last_checked = timezone.now()
         service.response_time_ms = response_time_ms
-        service.save(update_fields=["last_status", "last_checked", "response_time_ms", "last_error"])
+        service.last_modified_by = actor
+        service.save(
+            update_fields=[
+                "last_status",
+                "last_checked",
+                "response_time_ms",
+                "last_error",
+                "last_modified_by",
+                "updated_at",
+            ]
+        )
 
-        results.append({
-            "name": service.name,
-            "status": service.last_status,
-            "response_time_ms": service.response_time_ms,
-        })
+        results.append(
+            {
+                "name": service.name,
+                "status": service.last_status,
+                "response_time_ms": service.response_time_ms,
+            }
+        )
 
     return JsonResponse({"checked": len(results), "results": results})
 
@@ -217,7 +272,12 @@ def run_pull_checks(request):
 def api_services(request):
     if request.method == "GET":
         services = Service.objects.filter(is_public=True)
-        return JsonResponse({"services": [_service_to_dict(s) for s in services]})
+        return JsonResponse(
+            {
+                "last_update": _latest_service_timestamp(),
+                "services": [_service_to_dict(s) for s in services],
+            }
+        )
 
     if request.method == "POST":
         return api_service_create(request)
@@ -228,25 +288,30 @@ def api_services(request):
 @require_basic_auth
 @csrf_exempt
 def api_service_create(request):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
     data = _load_json(request)
     if data is None:
         return HttpResponseBadRequest("Invalid JSON")
 
-    service = Service.objects.create(
-        name=data.get("name", "").strip(),
-        description=data.get("description", "").strip(),
-        url=data.get("url", "").strip(),
-        check_type=data.get("check_type", Service.CHECK_PULL),
-        is_public=bool(data.get("is_public", True)),
-    )
-
-    if not service.name:
-        service.delete()
+    name = (data.get("name") or "").strip()
+    if not name:
         return HttpResponseBadRequest("Name is required")
 
-    if service.check_type not in {Service.CHECK_PULL, Service.CHECK_PUSH}:
-        service.check_type = Service.CHECK_PULL
-        service.save(update_fields=["check_type"])
+    check_type = data.get("check_type", Service.CHECK_PULL)
+    if check_type not in {Service.CHECK_PULL, Service.CHECK_PUSH}:
+        check_type = Service.CHECK_PULL
+
+    service = Service.objects.create(
+        name=name,
+        description=(data.get("description") or "").strip(),
+        url=(data.get("url") or "").strip(),
+        check_type=check_type,
+        is_public=bool(data.get("is_public", True)),
+        last_modified_by=_get_actor(request),
+        heartbeat_token=(data.get("heartbeat_token") or "").strip(),
+    )
 
     return JsonResponse(_service_to_dict(service), status=201)
 
@@ -264,11 +329,21 @@ def api_service_detail(request, pk):
 @csrf_exempt
 def api_service_update(request, pk):
     service = get_object_or_404(Service, pk=pk)
+
     data = _load_json(request)
     if data is None:
         return HttpResponseBadRequest("Invalid JSON")
 
-    for field in ["name", "description", "url", "check_type", "is_public", "last_status", "response_time_ms"]:
+    for field in [
+        "name",
+        "description",
+        "url",
+        "check_type",
+        "is_public",
+        "last_status",
+        "response_time_ms",
+        "heartbeat_token",
+    ]:
         if field in data:
             setattr(service, field, data[field])
 
@@ -278,19 +353,29 @@ def api_service_update(request, pk):
     if service.check_type not in {Service.CHECK_PULL, Service.CHECK_PUSH}:
         return HttpResponseBadRequest("Invalid check_type")
 
-    if service.last_status not in {Service.STATUS_UP, Service.STATUS_DOWN, Service.STATUS_UNKNOWN}:
+    if service.last_status not in {
+        Service.STATUS_UP,
+        Service.STATUS_DOWN,
+        Service.STATUS_UNKNOWN,
+    }:
         service.last_status = Service.STATUS_UNKNOWN
 
+    service.last_modified_by = _get_actor(request)
     service.save()
+
     return JsonResponse(_service_to_dict(service))
 
 
 @require_basic_auth
 @csrf_exempt
 def api_service_delete(request, pk):
+    if request.method != "DELETE":
+        return HttpResponseNotAllowed(["DELETE"])
+
     service = get_object_or_404(Service, pk=pk)
+    deleted = {"deleted": pk, "name": service.name, "deleted_by": _get_actor(request)}
     service.delete()
-    return JsonResponse({"deleted": pk})
+    return JsonResponse(deleted)
 
 
 @csrf_exempt
@@ -300,7 +385,12 @@ def api_users(request):
 
     if request.method == "GET":
         users = User.objects.order_by("username")
-        return JsonResponse({"users": [_user_to_dict(u) for u in users], "viewer": _user_to_dict(user)})
+        return JsonResponse(
+            {
+                "users": [_user_to_dict(u) for u in users],
+                "viewer": _user_to_dict(user),
+            }
+        )
 
     if request.method == "POST":
         if not user.is_staff:
@@ -316,6 +406,7 @@ def api_users(request):
 
         if not username or not password:
             return HttpResponseBadRequest("Username and password are required")
+
         if User.objects.filter(username=username).exists():
             return HttpResponseBadRequest("Username already exists")
 
@@ -349,6 +440,7 @@ def api_user_detail(request, pk):
             target.is_staff = data["role"] == "admin"
         if "is_active" in data:
             target.is_active = bool(data["is_active"])
+
         target.save()
         return JsonResponse(_user_to_dict(target))
 
@@ -357,6 +449,7 @@ def api_user_detail(request, pk):
             return _forbidden("Only admins can delete credentials")
         if actor.pk == target.pk:
             return _forbidden("Admins cannot delete themselves from this interface")
+
         target.delete()
         return JsonResponse({"deleted": pk})
 

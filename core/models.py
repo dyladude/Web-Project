@@ -3,7 +3,11 @@ from django.db import models
 
 
 class Todo(models.Model):
-    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="todos")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="todos",
+    )
     title = models.CharField(max_length=200)
     completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -18,7 +22,6 @@ class Todo(models.Model):
 class Service(models.Model):
     CHECK_PULL = "pull"
     CHECK_PUSH = "push"
-
     CHECK_TYPE_CHOICES = [
         (CHECK_PULL, "Pull"),
         (CHECK_PUSH, "Push"),
@@ -27,7 +30,6 @@ class Service(models.Model):
     STATUS_UP = "up"
     STATUS_DOWN = "down"
     STATUS_UNKNOWN = "unknown"
-
     STATUS_CHOICES = [
         (STATUS_UP, "Up"),
         (STATUS_DOWN, "Down"),
@@ -37,12 +39,24 @@ class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     url = models.URLField(blank=True)
-    check_type = models.CharField(max_length=10, choices=CHECK_TYPE_CHOICES, default=CHECK_PULL)
+    check_type = models.CharField(
+        max_length=10,
+        choices=CHECK_TYPE_CHOICES,
+        default=CHECK_PULL,
+    )
     is_public = models.BooleanField(default=True)
-    last_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_UNKNOWN)
+    last_status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=STATUS_UNKNOWN,
+    )
     last_checked = models.DateTimeField(null=True, blank=True)
     response_time_ms = models.PositiveIntegerField(null=True, blank=True)
     last_error = models.TextField(blank=True, null=True)
+
+    # HW 8 fields
+    last_modified_by = models.CharField(max_length=255, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
 
     # only needed for push checks
     heartbeat_token = models.CharField(max_length=64, blank=True, unique=True)

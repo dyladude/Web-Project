@@ -1,423 +1,574 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}HW 6 Dashboard{% endblock %}
+{% block title %}Dyaln Trent{% endblock %}
 
 {% block content %}
-<h1>Authenticated and Authorized</h1>
-<p>This page demonstrates an unauthenticated AJAX GET plus authenticated AJAX POST, PUT, and DELETE operations.</p>
+<link rel="stylesheet" href="{% static 'core/style.css' %}">
 
-<section class="panel">
-    <h2>Service Monitoring Dashboard</h2>
-    <p>
-        This section displays the current status of public monitored services, including
-        response time, most recent check time, and any recorded error details.
+<div class="dashboard-page">
+    <h1>Service Monitoring Dashboard</h1>
+    <p class="intro">
+        Public service records update live across connected browsers. This page polls the server once per second.
     </p>
-    <div class="stack-row">
-        <button id="refresh-services" type="button">Refresh services</button>
-    </div>
-    <div id="services-list" class="tiles"></div>
-</section>
 
-<section class="panel">
-    <h2>Basic Auth credentials</h2>
-    <p>Use an admin or author account here for the protected AJAX requests.</p>
-    <div class="two-col">
-        <label for="basic-username">Username</label>
-        <input id="basic-username" autocomplete="username" type="text">
-        <label for="basic-password">Password</label>
-        <input id="basic-password" autocomplete="current-password" type="password">
-    </div>
-    <p id="auth-status" class="muted">Not authenticated yet.</p>
-</section>
-
-<section class="panel">
-    <h2>Create service</h2>
-    <form id="create-service-form">
-        <div class="two-col">
-            <div>
-                <label for="service-name">Name</label>
-                <input id="service-name" name="name" required type="text">
-            </div>
-            <div>
-                <label for="service-url">URL</label>
-                <input id="service-url" name="url" type="url">
-            </div>
+    <section class="panel">
+        <h2>Live status</h2>
+        <div class="live-bar">
+            <span class="live-dot"></span>
+            <span>Live updates active</span>
+            <span class="live-meta">Polling every 1 second</span>
+            <span class="live-meta">Last sync: <span id="last-sync-time">Never</span></span>
         </div>
-        <label for="service-description">Description</label>
-        <textarea id="service-description" name="description" rows="3"></textarea>
-        <div class="two-col">
-            <div>
-                <label for="service-check-type">Check type</label>
-                <select id="service-check-type" name="check_type">
+        <button id="refresh-services-btn" type="button">Refresh services now</button>
+    </section>
+
+    <section class="panel">
+        <h2>Basic Auth credentials</h2>
+        <p>Use an admin or author account for protected API requests.</p>
+
+        <div class="form-grid two">
+            <label>
+                Username
+                <input id="auth-username" type="text" autocomplete="username">
+            </label>
+            <label>
+                Password
+                <input id="auth-password" type="password" autocomplete="current-password">
+            </label>
+        </div>
+
+        <p id="auth-status">Not authenticated yet.</p>
+    </section>
+
+    <section class="panel">
+        <h2>Public monitored services</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Response</th>
+                        <th>Last checked</th>
+                        <th>Last modified by</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody id="services-body">
+                    <tr>
+                        <td colspan="8">Loading services...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Create service</h2>
+        <div class="form-grid two">
+            <label>
+                Name
+                <input id="create-name" type="text">
+            </label>
+            <label>
+                URL
+                <input id="create-url" type="url" placeholder="https://example.com">
+            </label>
+            <label>
+                Description
+                <textarea id="create-description" rows="3"></textarea>
+            </label>
+            <label>
+                Check type
+                <select id="create-check-type">
                     <option value="pull">Pull</option>
                     <option value="push">Push</option>
                 </select>
-            </div>
-            <div>
-                <label for="service-public">Public</label>
-                <select id="service-public" name="is_public">
+            </label>
+            <label>
+                Public
+                <select id="create-is-public">
                     <option value="true">True</option>
                     <option value="false">False</option>
                 </select>
-            </div>
+            </label>
+            <label>
+                Heartbeat token (for push checks)
+                <input id="create-heartbeat-token" type="text" placeholder="optional-token">
+            </label>
         </div>
-        <button type="submit">Create service</button>
-    </form>
-</section>
+        <button id="create-service-btn" type="button">Create service</button>
+    </section>
 
-<section class="panel">
-    <h2>Edit or delete service</h2>
-    <form id="edit-service-form">
-        <div class="two-col">
-            <div>
-                <label for="edit-service-id">Service id</label>
-                <input id="edit-service-id" required type="number" min="1">
-            </div>
-            <div>
-                <label for="edit-last-status">Status</label>
-                <select id="edit-last-status">
+    <section class="panel">
+        <h2>Edit or delete service</h2>
+        <div class="form-grid two">
+            <label>
+                Service ID
+                <input id="edit-id" type="number" min="1">
+            </label>
+            <label>
+                Status
+                <select id="edit-status">
+                    <option value="">No change</option>
                     <option value="unknown">Unknown</option>
                     <option value="up">Up</option>
                     <option value="down">Down</option>
                 </select>
-            </div>
+            </label>
+            <label>
+                Name
+                <input id="edit-name" type="text">
+            </label>
+            <label>
+                URL
+                <input id="edit-url" type="url" placeholder="https://example.com">
+            </label>
+            <label>
+                Description
+                <textarea id="edit-description" rows="3"></textarea>
+            </label>
+            <label>
+                Check type
+                <select id="edit-check-type">
+                    <option value="">No change</option>
+                    <option value="pull">Pull</option>
+                    <option value="push">Push</option>
+                </select>
+            </label>
+            <label>
+                Public
+                <select id="edit-is-public">
+                    <option value="">No change</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </label>
+            <label>
+                Response time (ms)
+                <input id="edit-response-time" type="number" min="0">
+            </label>
+            <label>
+                Touch checked time
+                <select id="edit-touch-checked">
+                    <option value="false">False</option>
+                    <option value="true">True</option>
+                </select>
+            </label>
+            <label>
+                Heartbeat token
+                <input id="edit-heartbeat-token" type="text">
+            </label>
         </div>
-        <div class="two-col">
-            <div>
-                <label for="edit-service-name">Name</label>
-                <input id="edit-service-name" type="text">
-            </div>
-            <div>
-                <label for="edit-service-url">URL</label>
-                <input id="edit-service-url" type="url">
-            </div>
+
+        <div class="button-row">
+            <button id="update-service-btn" type="button">Update service</button>
+            <button id="delete-service-btn" type="button" class="danger">Delete service</button>
         </div>
-        <label for="edit-service-description">Description</label>
-        <textarea id="edit-service-description" rows="3"></textarea>
-        <button type="submit">Update service</button>
-        <button id="delete-service-btn" type="button">Delete service</button>
-    </form>
-</section>
+    </section>
 
-<section class="panel">
-    <h2>User management</h2>
-    <p>All user endpoints require Basic Auth. Only admins can create, update, or delete credentials.</p>
-    <div class="stack-row">
-        <button id="load-users-btn" type="button">Load users</button>
-    </div>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>Active</th>
-                </tr>
-            </thead>
-            <tbody id="users-table-body"></tbody>
-        </table>
-    </div>
+    <section class="panel">
+        <h2>User management</h2>
+        <p>All user endpoints require Basic Auth. Only admins can create, update, or delete credentials.</p>
 
-    <h3>Create credentials</h3>
-    <form id="create-user-form">
-        <div class="two-col">
-            <div>
-                <label for="new-username">Username</label>
-                <input id="new-username" required type="text">
-            </div>
-            <div>
-                <label for="new-password">Password</label>
-                <input id="new-password" required type="password">
-            </div>
+        <div class="button-row">
+            <button id="load-users-btn" type="button">Load users</button>
         </div>
-        <label for="new-role">Role</label>
-        <select id="new-role">
-            <option value="author">Author</option>
-            <option value="admin">Admin</option>
-        </select>
-        <button type="submit">Create user</button>
-    </form>
 
-    <h3>Update or delete credentials</h3>
-    <form id="edit-user-form">
-        <div class="two-col">
-            <div>
-                <label for="edit-user-id">User id</label>
-                <input id="edit-user-id" required type="number" min="1">
-            </div>
-            <div>
-                <label for="edit-user-role">Role</label>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Active</th>
+                    </tr>
+                </thead>
+                <tbody id="users-body">
+                    <tr>
+                        <td colspan="4">No users loaded yet.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Create credentials</h3>
+        <div class="form-grid two">
+            <label>
+                Username
+                <input id="new-user-username" type="text">
+            </label>
+            <label>
+                Password
+                <input id="new-user-password" type="password">
+            </label>
+            <label>
+                Role
+                <select id="new-user-role">
+                    <option value="author">Author</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </label>
+        </div>
+        <button id="create-user-btn" type="button">Create user</button>
+
+        <h3>Update or delete credentials</h3>
+        <div class="form-grid two">
+            <label>
+                User ID
+                <input id="edit-user-id" type="number" min="1">
+            </label>
+            <label>
+                Role
                 <select id="edit-user-role">
                     <option value="author">Author</option>
                     <option value="admin">Admin</option>
                 </select>
-            </div>
-        </div>
-        <div class="two-col">
-            <div>
-                <label for="edit-user-password">New password</label>
+            </label>
+            <label>
+                New password
                 <input id="edit-user-password" type="password">
-            </div>
-            <div>
-                <label for="edit-user-active">Active</label>
+            </label>
+            <label>
+                Active
                 <select id="edit-user-active">
                     <option value="true">True</option>
                     <option value="false">False</option>
                 </select>
-            </div>
+            </label>
         </div>
-        <button type="submit">Update user</button>
-        <button id="delete-user-btn" type="button">Delete user</button>
-    </form>
-</section>
 
-<pre id="api-output" class="api-output">Ready.</pre>
+        <div class="button-row">
+            <button id="update-user-btn" type="button">Update user</button>
+            <button id="delete-user-btn" type="button" class="danger">Delete user</button>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Status</h2>
+        <pre id="status-output">Ready.</pre>
+    </section>
+</div>
 
 <script>
-const output = document.getElementById("api-output");
-const servicesList = document.getElementById("services-list");
-const usersTableBody = document.getElementById("users-table-body");
-const authStatus = document.getElementById("auth-status");
+(function () {
+    const statusOutput = document.getElementById("status-output");
+    const servicesBody = document.getElementById("services-body");
+    const usersBody = document.getElementById("users-body");
+    const lastSyncTime = document.getElementById("last-sync-time");
 
-function authHeader() {
-    const username = document.getElementById("basic-username").value;
-    const password = document.getElementById("basic-password").value;
-    if (!username || !password) {
-        authStatus.textContent = "Enter Basic Auth credentials before protected requests.";
-        return {};
+    let lastSeenUpdate = null;
+    let pollInFlight = false;
+
+    function setStatus(message, isError = false) {
+        statusOutput.textContent = message;
+        statusOutput.classList.toggle("error-text", isError);
     }
-    authStatus.textContent = `Using Basic Auth as ${username}.`;
-    return { Authorization: `Basic ${btoa(`${username}:${password}`)}` };
-}
 
-function showResult(label, payload) {
-    output.textContent = `${label}\n\n${JSON.stringify(payload, null, 2)}`;
-}
+    function authHeader() {
+        const username = document.getElementById("auth-username").value.trim();
+        const password = document.getElementById("auth-password").value;
+        const authStatus = document.getElementById("auth-status");
 
-async function jsonFetch(url, options = {}) {
-    const response = await fetch(url, options);
-    let data;
-    try {
-        data = await response.json();
-    } catch {
-        data = { detail: await response.text() };
+        if (!username || !password) {
+            authStatus.textContent = "Not authenticated yet.";
+            return {};
+        }
+
+        authStatus.textContent = `Using Basic Auth for ${username}.`;
+        return {
+            "Authorization": "Basic " + btoa(`${username}:${password}`)
+        };
     }
-    if (!response.ok) {
-        throw { status: response.status, data };
+
+    function formatDate(value) {
+        if (!value) return "Never";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleString();
     }
-    return data;
-}
 
-function formatDate(value) {
-    if (!value) return "Never";
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function serviceCard(service) {
-    const statusLabel = service.last_status || "unknown";
-    const responseTime = service.response_time_ms ?? "N/A";
-    const lastChecked = formatDate(service.last_checked);
-    const errorLine = service.last_error
-        ? `<p class="service-error"><strong>Error:</strong> ${service.last_error}</p>`
-        : "";
-
-    return `
-        <article class="tile service-tile service-${statusLabel}">
-            <div class="tile-header">
-                <h3>${service.name}</h3>
-                <span class="status-pill status-${statusLabel}">${statusLabel.toUpperCase()}</span>
-            </div>
-
-            <p class="service-description">${service.description || "No description provided."}</p>
-
-            <div class="service-meta">
-                <p><strong>Check type:</strong> ${service.check_type}</p>
-                <p><strong>Last checked:</strong> ${lastChecked}</p>
-                <p><strong>Response time:</strong> ${responseTime} ms</p>
-            </div>
-
-            ${errorLine}
-
-            <p class="service-link">
-                ${service.url ? `<a href="${service.url}" target="_blank" rel="noopener">Open service</a>` : "No URL"}
-            </p>
-        </article>
-    `;
-}
-
-async function loadServices() {
-    try {
-        const data = await jsonFetch("/api/services/");
-        servicesList.innerHTML = data.services.map(serviceCard).join("") || "<p>No services found.</p>";
-        showResult("GET /api/services/", data);
-    } catch (error) {
-        showResult("GET /api/services/ failed", error);
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
     }
-}
 
-async function loadUsers() {
-    try {
-        const data = await jsonFetch("/api/users/", {
-            headers: {
-                ...authHeader(),
-            },
-        });
-        usersTableBody.innerHTML = data.users.map((user) => `
+    function renderServices(services) {
+        if (!services.length) {
+            servicesBody.innerHTML = `
+                <tr>
+                    <td colspan="8">No public services found.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        servicesBody.innerHTML = services.map(service => `
             <tr>
-                <td>${user.id}</td>
-                <td>${user.username}</td>
-                <td>${user.role}</td>
-                <td>${user.is_active}</td>
+                <td>${service.id}</td>
+                <td>${escapeHtml(service.name)}</td>
+                <td>${escapeHtml(service.check_type)}</td>
+                <td><span class="status-badge status-${escapeHtml(service.last_status)}">${escapeHtml(service.last_status)}</span></td>
+                <td>${service.response_time_ms !== null && service.response_time_ms !== undefined ? service.response_time_ms + " ms" : "N/A"}</td>
+                <td>${escapeHtml(formatDate(service.last_checked))}</td>
+                <td>${escapeHtml(service.last_modified_by || "Unknown")}</td>
+                <td>${escapeHtml(service.last_error || "None")}</td>
             </tr>
         `).join("");
-        showResult("GET /api/users/", data);
-    } catch (error) {
-        showResult("GET /api/users/ failed", error);
     }
-}
 
-document.getElementById("refresh-services").addEventListener("click", loadServices);
-document.getElementById("load-users-btn").addEventListener("click", loadUsers);
+    function renderUsers(users) {
+        if (!users.length) {
+            usersBody.innerHTML = `
+                <tr>
+                    <td colspan="4">No users found.</td>
+                </tr>
+            `;
+            return;
+        }
 
-document.getElementById("create-service-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const payload = {
-        name: document.getElementById("service-name").value,
-        url: document.getElementById("service-url").value,
-        description: document.getElementById("service-description").value,
-        check_type: document.getElementById("service-check-type").value,
-        is_public: document.getElementById("service-public").value === "true",
-    };
+        usersBody.innerHTML = users.map(user => `
+            <tr>
+                <td>${user.id}</td>
+                <td>${escapeHtml(user.username)}</td>
+                <td>${escapeHtml(user.role)}</td>
+                <td>${user.is_active ? "True" : "False"}</td>
+            </tr>
+        `).join("");
+    }
 
-    try {
-        const data = await jsonFetch("/api/services/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeader(),
-            },
-            body: JSON.stringify(payload),
+    async function apiFetch(url, options = {}) {
+        const headers = {
+            "Accept": "application/json",
+            ...authHeader(),
+            ...(options.headers || {})
+        };
+
+        const response = await fetch(url, {
+            cache: "no-store",
+            ...options,
+            headers
         });
-        showResult("POST /api/services/", data);
-        event.target.reset();
-        loadServices();
-    } catch (error) {
-        showResult("POST /api/services/ failed", error);
+
+        const text = await response.text();
+        let data = null;
+
+        try {
+            data = text ? JSON.parse(text) : null;
+        } catch (error) {
+            data = text;
+        }
+
+        if (!response.ok) {
+            const detail = data && data.detail ? data.detail : text || `HTTP ${response.status}`;
+            throw new Error(detail);
+        }
+
+        return data;
     }
-});
 
-document.getElementById("edit-service-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const serviceId = document.getElementById("edit-service-id").value;
-    const payload = {
-        name: document.getElementById("edit-service-name").value,
-        url: document.getElementById("edit-service-url").value,
-        description: document.getElementById("edit-service-description").value,
-        last_status: document.getElementById("edit-last-status").value,
-        touch_checked: true,
-    };
+    async function loadServices(forceRender = false) {
+        if (pollInFlight) return;
+        pollInFlight = true;
 
-    try {
-        const data = await jsonFetch(`/api/services/${serviceId}/`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeader(),
-            },
-            body: JSON.stringify(payload),
-        });
-        showResult(`PUT /api/services/${serviceId}/`, data);
-        loadServices();
-    } catch (error) {
-        showResult("PUT service failed", error);
+        try {
+            const data = await apiFetch("/api/services/", { method: "GET" });
+            const changed = forceRender || data.last_update !== lastSeenUpdate;
+
+            if (changed) {
+                lastSeenUpdate = data.last_update;
+                renderServices(data.services || []);
+            }
+
+            lastSyncTime.textContent = new Date().toLocaleTimeString();
+        } catch (error) {
+            setStatus(`Failed to load services: ${error.message}`, true);
+        } finally {
+            pollInFlight = false;
+        }
     }
-});
 
-document.getElementById("delete-service-btn").addEventListener("click", async () => {
-    const serviceId = document.getElementById("edit-service-id").value;
-    try {
-        const data = await jsonFetch(`/api/services/${serviceId}/`, {
-            method: "DELETE",
-            headers: {
-                ...authHeader(),
-            },
-        });
-        showResult(`DELETE /api/services/${serviceId}/`, data);
-        loadServices();
-    } catch (error) {
-        showResult("DELETE service failed", error);
+    async function loadUsers() {
+        try {
+            const data = await apiFetch("/api/users/", { method: "GET" });
+            renderUsers(data.users || []);
+            setStatus("Loaded users.");
+        } catch (error) {
+            setStatus(`Failed to load users: ${error.message}`, true);
+        }
     }
-});
 
-document.getElementById("create-user-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const payload = {
-        username: document.getElementById("new-username").value,
-        password: document.getElementById("new-password").value,
-        role: document.getElementById("new-role").value,
-    };
+    async function createService() {
+        const payload = {
+            name: document.getElementById("create-name").value.trim(),
+            url: document.getElementById("create-url").value.trim(),
+            description: document.getElementById("create-description").value.trim(),
+            check_type: document.getElementById("create-check-type").value,
+            is_public: document.getElementById("create-is-public").value === "true",
+            heartbeat_token: document.getElementById("create-heartbeat-token").value.trim()
+        };
 
-    try {
-        const data = await jsonFetch("/api/users/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeader(),
-            },
-            body: JSON.stringify(payload),
-        });
-        showResult("POST /api/users/", data);
-        event.target.reset();
-        loadUsers();
-    } catch (error) {
-        showResult("POST /api/users/ failed", error);
+        try {
+            await apiFetch("/api/services/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            setStatus("Service created.");
+            await loadServices(true);
+        } catch (error) {
+            setStatus(`Failed to create service: ${error.message}`, true);
+        }
     }
-});
 
-document.getElementById("edit-user-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const userId = document.getElementById("edit-user-id").value;
-    const payload = {
-        role: document.getElementById("edit-user-role").value,
-        password: document.getElementById("edit-user-password").value,
-        is_active: document.getElementById("edit-user-active").value === "true",
-    };
+    async function updateService() {
+        const serviceId = document.getElementById("edit-id").value.trim();
+        if (!serviceId) {
+            setStatus("Service ID is required for updates.", true);
+            return;
+        }
 
-    try {
-        const data = await jsonFetch(`/api/users/${userId}/`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                ...authHeader(),
-            },
-            body: JSON.stringify(payload),
-        });
-        showResult(`PUT /api/users/${userId}/`, data);
-        loadUsers();
-    } catch (error) {
-        showResult("PUT /api/users/ failed", error);
+        const payload = {};
+        const name = document.getElementById("edit-name").value.trim();
+        const url = document.getElementById("edit-url").value.trim();
+        const description = document.getElementById("edit-description").value.trim();
+        const status = document.getElementById("edit-status").value;
+        const checkType = document.getElementById("edit-check-type").value;
+        const isPublic = document.getElementById("edit-is-public").value;
+        const responseTime = document.getElementById("edit-response-time").value.trim();
+        const touchChecked = document.getElementById("edit-touch-checked").value === "true";
+        const heartbeatToken = document.getElementById("edit-heartbeat-token").value.trim();
+
+        if (name) payload.name = name;
+        if (url) payload.url = url;
+        if (description) payload.description = description;
+        if (status) payload.last_status = status;
+        if (checkType) payload.check_type = checkType;
+        if (isPublic) payload.is_public = isPublic === "true";
+        if (responseTime) payload.response_time_ms = Number(responseTime);
+        if (heartbeatToken) payload.heartbeat_token = heartbeatToken;
+        payload.touch_checked = touchChecked;
+
+        try {
+            await apiFetch(`/api/services/${serviceId}/`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            setStatus(`Service ${serviceId} updated.`);
+            await loadServices(true);
+        } catch (error) {
+            setStatus(`Failed to update service: ${error.message}`, true);
+        }
     }
-});
 
-document.getElementById("delete-user-btn").addEventListener("click", async () => {
-    const userId = document.getElementById("edit-user-id").value;
-    try {
-        const data = await jsonFetch(`/api/users/${userId}/`, {
-            method: "DELETE",
-            headers: {
-                ...authHeader(),
-            },
-        });
-        showResult(`DELETE /api/users/${userId}/`, data);
-        loadUsers();
-    } catch (error) {
-        showResult("DELETE /api/users/ failed", error);
+    async function deleteService() {
+        const serviceId = document.getElementById("edit-id").value.trim();
+        if (!serviceId) {
+            setStatus("Service ID is required for deletion.", true);
+            return;
+        }
+
+        try {
+            await apiFetch(`/api/services/${serviceId}/`, {
+                method: "DELETE"
+            });
+            setStatus(`Service ${serviceId} deleted.`);
+            await loadServices(true);
+        } catch (error) {
+            setStatus(`Failed to delete service: ${error.message}`, true);
+        }
     }
-});
 
-loadServices();
-setInterval(loadServices, 30000); // auto-refresh every 30 seconds
+    async function createUser() {
+        const payload = {
+            username: document.getElementById("new-user-username").value.trim(),
+            password: document.getElementById("new-user-password").value,
+            role: document.getElementById("new-user-role").value
+        };
+
+        try {
+            await apiFetch("/api/users/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            setStatus(`User ${payload.username} created.`);
+            await loadUsers();
+        } catch (error) {
+            setStatus(`Failed to create user: ${error.message}`, true);
+        }
+    }
+
+    async function updateUser() {
+        const userId = document.getElementById("edit-user-id").value.trim();
+        if (!userId) {
+            setStatus("User ID is required for update.", true);
+            return;
+        }
+
+        const payload = {
+            role: document.getElementById("edit-user-role").value,
+            is_active: document.getElementById("edit-user-active").value === "true"
+        };
+
+        const password = document.getElementById("edit-user-password").value;
+        if (password) {
+            payload.password = password;
+        }
+
+        try {
+            await apiFetch(`/api/users/${userId}/`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            setStatus(`User ${userId} updated.`);
+            await loadUsers();
+        } catch (error) {
+            setStatus(`Failed to update user: ${error.message}`, true);
+        }
+    }
+
+    async function deleteUser() {
+        const userId = document.getElementById("edit-user-id").value.trim();
+        if (!userId) {
+            setStatus("User ID is required for deletion.", true);
+            return;
+        }
+
+        try {
+            await apiFetch(`/api/users/${userId}/`, {
+                method: "DELETE"
+            });
+            setStatus(`User ${userId} deleted.`);
+            await loadUsers();
+        } catch (error) {
+            setStatus(`Failed to delete user: ${error.message}`, true);
+        }
+    }
+
+    document.getElementById("refresh-services-btn").addEventListener("click", () => loadServices(true));
+    document.getElementById("create-service-btn").addEventListener("click", createService);
+    document.getElementById("update-service-btn").addEventListener("click", updateService);
+    document.getElementById("delete-service-btn").addEventListener("click", deleteService);
+    document.getElementById("load-users-btn").addEventListener("click", loadUsers);
+    document.getElementById("create-user-btn").addEventListener("click", createUser);
+    document.getElementById("update-user-btn").addEventListener("click", updateUser);
+    document.getElementById("delete-user-btn").addEventListener("click", deleteUser);
+
+    loadServices(true);
+    setInterval(() => {
+        loadServices(false);
+    }, 1000);
+})();
 </script>
 {% endblock %}
